@@ -20,13 +20,10 @@ fn query_as_map(u: Url) -> HashMap<String, String> {
 fn main() {
     let args = Args::parse();
 
-    let url = match Url::parse(args.url.as_str()) {
-        Ok(url) => url,
-        Err(e) => {
-            eprintln!("Error parsing URL: {}", e);
-            return;
-        }
-    };
+    let url = Url::parse(args.url.as_str()).unwrap_or_else(|e| {
+        eprintln!("Error parsing URL: {}", e);
+        std::process::exit(1);
+    });
 
     match url.scheme() {
         "viewsvn" => {}
