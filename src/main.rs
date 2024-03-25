@@ -17,13 +17,32 @@ fn query_as_map(u: Url) -> HashMap<String, String> {
     u.query_pairs().into_owned().collect()
 }
 
+pub trait UnwrapExt<T> {
+    fn unwrap_or_error(self, msg: &str) -> T;
+}
+
+impl<T, E: std::fmt::Display> UnwrapExt<T> for Result<T, E> {
+    fn unwrap_or_error(self, msg: &str) -> T {
+        self.unwrap_or_else(|err| {
+            eprintln!("{msg}: {}", { err });
+            std::process::exit(1);
+        })
+    }
+}
+
+impl<T> UnwrapExt<T> for Option<T> {
+    fn unwrap_or_error(self, msg: &str) -> T {
+        self.unwrap_or_else(|| {
+            eprintln!("{msg}");
+            std::process::exit(1);
+        })
+    }
+}
+
 fn main() {
     let args = Args::parse();
 
-    let url = Url::parse(args.url.as_str()).unwrap_or_else(|e| {
-        eprintln!("Error parsing URL: {}", e);
-        std::process::exit(1);
-    });
+    let url = Url::parse(args.url.as_str()).unwrap_or_error("Error parsing URL");
 
     match url.scheme() {
         "viewsvn" => {}
@@ -40,16 +59,14 @@ fn main() {
         .expect("No server_url specified in url.");
 
     // Validate the url, but we'll just use the string.
-    Url::parse(server_url).expect("Invalid server_url");
+    Url::parse(server_url).unwrap_or_error("Invalid server_url");
 
     let revision_str = query
         .get("revision")
-        .expect("No revision specified in url.");
+        .unwrap_or_error("No revision specified in url.");
     let revision = revision_str
         .parse::<u32>()
-        .expect("Url revision was not a number");
-
-    println!("/startrev:{revision}");
+        .unwrap_or_error("Url revision was not a number");
 
     // TortoiseProc /command:log /startrev:$revision /path:https://svn.corp.ca/svn/corp_repository
     let output = Command::new("TortoiseProc.exe")
