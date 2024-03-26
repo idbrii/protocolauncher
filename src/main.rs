@@ -1,18 +1,25 @@
 use clap::Parser;
 use std::collections::HashMap;
+use std::env;
+use std::io;
+use std::path::Path;
 use std::process::Command;
 use url::Url;
+use winreg::enums::*;
+use winreg::RegKey;
 
 const HANDLED_PROTOCOL: &str = "viewsvn";
 
 /// Establish a protocol for viewing svn logs, parse the url containing the revision and path, and
 /// launch Tortoise to view logs at that revision.
+///
+/// When launched with no arguments, registers this program as a handler for our protocol.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// Url to parse
     #[arg(short, long)]
-    url: String,
+    url: Option<String>,
 }
 
 fn query_as_map(u: Url) -> HashMap<String, String> {
@@ -41,8 +48,57 @@ impl<T> UnwrapExt<T> for Option<T> {
     }
 }
 
+pub fn log_key(_key: &RegKey, disp: &RegDisposition) {
+    match disp {
+        REG_CREATED_NEW_KEY => println!("A new key has been created"),
+        REG_OPENED_EXISTING_KEY => println!("An existing key has been opened"),
+    }
+}
+
+fn register_handler() -> io::Result<()> {
+    let exe_path = std::env::current_exe()?;
+
+    // Open or create the registry key for URI handling
+    let hkcr = RegKey::predef(winreg::enums::HKEY_CLASSES_ROOT);
+
+    let path = Path::new(HANDLED_PROTOCOL);
+    let (root_key, disp) = hkcr.create_subkey(&path)?;
+    log_key(&root_key, &disp);
+
+    // Set the default value of the URI scheme key to the name of your application
+    root_key.set_value("", &format!("URL:{HANDLED_PROTOCOL} Protocol"))?;
+    root_key.set_value("URL Protocol", &"")?;
+
+    let (shell_key, disp) = root_key.create_subkey("shell")?;
+    log_key(&shell_key, &disp);
+
+    // Create the shell verb.
+    let (open_key, disp) = shell_key.create_subkey("open")?;
+    log_key(&open_key, &disp);
+
+    // What to do when that verb is executed.
+    let (command_key, disp) = open_key.create_subkey("command")?;
+    log_key(&command_key, &disp);
+
+    // Set the default value of the "command" key to the command-line template for your application
+    let command_template = format!("\"{}\" --url \"%1\"", exe_path.display());
+    command_key.set_value("", &command_template)?;
+
+    println!(
+        "Successfully registered URI handler for '{}'",
+        HANDLED_PROTOCOL
+    );
+
+    Ok(())
+}
+
 fn view_log(args: Args) {
-    let url = Url::parse(args.url.as_str()).unwrap_or_error("Error parsing URL");
+    let url = Url::parse(
+        args.url
+            .unwrap_or_error("Didn't receive url argument.")
+            .as_str(),
+    )
+    .unwrap_or_error("Error parsing URL");
 
     match url.scheme() {
         HANDLED_PROTOCOL => {}
@@ -82,7 +138,9 @@ fn view_log(args: Args) {
 }
 
 fn main() {
-    view_log(Args::parse());
-    // TODO:
-    //https://stackoverflow.com/questions/389204/how-do-i-create-my-own-url-protocol-e-g-so
+    let args: Vec<String> = env::args().collect();
+    match args.len() {
+        1 => register_handler().expect("Failed to register protocol."),
+        _ => view_log(Args::parse()),
+    }
 }
