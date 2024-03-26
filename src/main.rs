@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::process::Command;
 use url::Url;
 
+const HANDLED_PROTOCOL: &str = "viewsvn";
+
 /// Establish a protocol for viewing svn logs, parse the url containing the revision and path, and
 /// launch Tortoise to view logs at that revision.
 #[derive(Parser, Debug)]
@@ -39,13 +41,11 @@ impl<T> UnwrapExt<T> for Option<T> {
     }
 }
 
-fn main() {
-    let args = Args::parse();
-
+fn view_log(args: Args) {
     let url = Url::parse(args.url.as_str()).unwrap_or_error("Error parsing URL");
 
     match url.scheme() {
-        "viewsvn" => {}
+        HANDLED_PROTOCOL => {}
         _ => {
             eprintln!("Unsupported protocol: {}", url.scheme());
             return;
@@ -79,4 +79,10 @@ fn main() {
         "Tortoise output: {}",
         String::from_utf8_lossy(&output.stdout)
     );
+}
+
+fn main() {
+    view_log(Args::parse());
+    // TODO:
+    //https://stackoverflow.com/questions/389204/how-do-i-create-my-own-url-protocol-e-g-so
 }
