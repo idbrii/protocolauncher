@@ -7,5 +7,8 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.3", features = ["derive"] }
+directories = "5.0.1"
+flexi_logger = "0.28.0"
+log = "0.4.21"
 url = "2.5.0"
 winreg = "0.52.0"

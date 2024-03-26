@@ -1,4 +1,7 @@
 use clap::Parser;
+use directories::ProjectDirs;
+use flexi_logger::{Duplicate, FileSpec, Logger};
+use log::{error, info, trace};
 use std::collections::HashMap;
 use std::env;
 use std::io;
@@ -33,7 +36,7 @@ pub trait UnwrapExt<T> {
 impl<T, E: std::fmt::Display> UnwrapExt<T> for Result<T, E> {
     fn unwrap_or_error(self, msg: &str) -> T {
         self.unwrap_or_else(|err| {
-            eprintln!("{msg}: {}", { err });
+            error!("{msg}: {}", { err });
             std::process::exit(1);
         })
     }
@@ -42,7 +45,7 @@ impl<T, E: std::fmt::Display> UnwrapExt<T> for Result<T, E> {
 impl<T> UnwrapExt<T> for Option<T> {
     fn unwrap_or_error(self, msg: &str) -> T {
         self.unwrap_or_else(|| {
-            eprintln!("{msg}");
+            error!("{msg}");
             std::process::exit(1);
         })
     }
@@ -50,8 +53,8 @@ impl<T> UnwrapExt<T> for Option<T> {
 
 pub fn log_key(_key: &RegKey, disp: &RegDisposition) {
     match disp {
-        REG_CREATED_NEW_KEY => println!("A new key has been created"),
-        REG_OPENED_EXISTING_KEY => println!("An existing key has been opened"),
+        REG_CREATED_NEW_KEY => info!("A new key has been created"),
+        REG_OPENED_EXISTING_KEY => info!("An existing key has been opened"),
     }
 }
 
@@ -84,7 +87,7 @@ fn register_handler() -> io::Result<()> {
     let command_template = format!("\"{}\" --url \"%1\"", exe_path.display());
     command_key.set_value("", &command_template)?;
 
-    println!(
+    info!(
         "Successfully registered URI handler for '{}'",
         HANDLED_PROTOCOL
     );
@@ -103,7 +106,7 @@ fn view_log(args: Args) {
     match url.scheme() {
         HANDLED_PROTOCOL => {}
         _ => {
-            eprintln!("Unsupported protocol: {}", url.scheme());
+            error!("Unsupported protocol: {}", url.scheme());
             return;
         }
     };
@@ -131,14 +134,29 @@ fn view_log(args: Args) {
         .arg(format!("/path:{server_url}"))
         .output()
         .expect("Failed to execute command.");
-    println!(
+    trace!(
         "Tortoise output: {}",
         String::from_utf8_lossy(&output.stdout)
     );
+    info!("Launched TortoiseProc.");
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+
+    if let Some(proj_dirs) = ProjectDirs::from("ca", "idbrii", "protolaunch") {
+        let path = proj_dirs.config_dir().join("test.log");
+        println!("Log path: {}", path.display());
+        Logger::try_with_str("info")
+            .unwrap_or_error("Failed to init log.")
+            .log_to_file(FileSpec::try_from(path).unwrap())
+            .duplicate_to_stderr(Duplicate::Trace)
+            .start()
+            .unwrap_or_error("Failed to open log file.");
+    }
+
+    info!("Argument count: {}", args.len());
+
     match args.len() {
         1 => register_handler().expect("Failed to register protocol."),
         _ => view_log(Args::parse()),
