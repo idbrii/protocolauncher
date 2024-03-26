@@ -144,8 +144,8 @@ fn view_log(args: Args) {
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if let Some(proj_dirs) = ProjectDirs::from("ca", "idbrii", "protolaunch") {
-        let path = proj_dirs.config_dir().join("test.log");
+    if let Some(proj_dirs) = ProjectDirs::from("com", "idbrii", "protocolauncher") {
+        let path = proj_dirs.config_dir().join("main.log");
         println!("Log path: {}", path.display());
         Logger::try_with_str("info")
             .unwrap_or_error("Failed to init log.")

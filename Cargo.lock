@@ -376,7 +376,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "protolaunch"
+name = "protocolauncher"
 version = "0.1.0"
 dependencies = [
  "clap",
