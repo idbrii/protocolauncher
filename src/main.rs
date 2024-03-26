@@ -16,11 +16,12 @@ const HANDLED_PROTOCOL: &str = "viewsvn";
 /// Establish a protocol for viewing svn logs, parse the url containing the revision and path, and
 /// launch Tortoise to view logs at that revision.
 ///
-/// When launched with no arguments, registers this program as a handler for our protocol.
+/// When launched with no arguments, registers this program as a handler for our protocol. You must
+/// launch as Administrator.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Url to parse
+    /// Url specifying the log path and revision to view.
     #[arg(short, long)]
     url: Option<String>,
 }
@@ -158,7 +159,12 @@ fn main() {
     info!("Argument count: {}", args.len());
 
     match args.len() {
-        1 => register_handler().expect("Failed to register protocol."),
+        1 => register_handler().unwrap_or_else(|e| match e.kind() {
+            io::ErrorKind::PermissionDenied => error!(
+                "Insufficient permissions to modifiy registry. Try running as Administrator."
+            ),
+            _ => error!("Failed to register protocol: {}", e),
+        }),
         _ => view_log(Args::parse()),
     }
 }
